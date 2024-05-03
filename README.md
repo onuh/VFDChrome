@@ -3,14 +3,14 @@ A Chrome driver based python script to automate printing for TAX automation soft
 
 # Python Libraries
 This project was built with python 3.6 using the following libraries:
-`- json, os, sys, psutil`
-`- subprocess`
-`- selenium`
-`- chromedriver_autoinstaller_fix`
-`- ctypes`
-`- threading`
-`- shutil`
-`- datetime`
+- `json, os, sys, psutil`
+- `subprocess`
+- `selenium`
+- `chromedriver_autoinstaller_fix`
+- `ctypes`
+- `threading`
+- `shutil`
+- `datetime`
 
 # Freezing the project for distribution
 The project is already frozen. The contents of the cloned repository can be copied to `C:\\VFDChrome`, then make a shortcut of `VFDChrome.exe` to your desktop or pin to task manager. If you wish to freeze the project, clone the repository, isolate `VFDChrome.pyw`, ensure the libraries are installed on your computer otherwise, use `pip install **library`, then freeze the script with your choice python freezer.
