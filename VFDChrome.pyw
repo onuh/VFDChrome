@@ -159,10 +159,14 @@ if __name__ == "__main__":
         Mbox('Connection Error', 'Could not connect to chromedriver update server', 1)
         sys.exit()
     close_all_chrome_process()
-    driver = webdriver.Chrome(chrome_options=chrome_options)
-    driver.get(home_page_config())
-    print(driver.get_log('driver'))
-    print("loop started")
+    try:
+        driver = webdriver.Chrome(chrome_options=chrome_options)
+        driver.get(home_page_config())
+        print(driver.get_log('driver'))
+        print("loop started")
+    except Exception as e:
+        print("Error: ", e)
+        pass
     while True:
         # chech_chrome()
         path = "c:\\VFDBoxChrome\\Invoices"
