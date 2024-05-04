@@ -3,30 +3,29 @@ from configparser import ConfigParser
 import subprocess
 from subprocess import check_output
 from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
 import chromedriver_autoinstaller_fix
 import time
 from random import randint
 from shutil import copyfile
-import threading
 from datetime import datetime
 import ctypes
+
 
 def Mbox(title, text, style):
     return ctypes.windll.user32.MessageBoxW(0, text, title, style)
 
 
 def chech_chrome():
-    while 1:
-        time.sleep(1)
-        running_name_of_process = []
-        for process in psutil.process_iter():
-            if process.name() == "chrome.exe":
-                running_name_of_process.append(process.name())
+    running_name_of_process = []
+    for process in psutil.process_iter():
+        if process.name() == "chrome.exe":
+            running_name_of_process.append(process.name())
 
-        running = running_name_of_process.count("chrome.exe")
-        if running >= 1:
-            time.sleep(0.5)
-            close_chrome_process = check_output('wmic process where name="VFDChrome.exe" call terminate', shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
+    running = running_name_of_process.count("chrome.exe")
+    if running >= 1:
+        time.sleep(0.5)
+        close_chrome_process = check_output('wmic process where name="chrome.exe" call terminate', shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
 
 
 def verification():
@@ -36,12 +35,15 @@ def verification():
             running_name_of_process.append(process.name())
 
     running = running_name_of_process.count("VFDChrome.exe")
-    if running > 2:
+    if running > 1:
         time.sleep(0.5)
-        close_chrome_process = check_output('wmic process where name="chrome.exe" call terminate', shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
-        close_chrome_process = check_output('wmic process where name="VFDChrome.exe" call terminate', shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
+        close_chrome_process1 = check_output('wmic process where name="chrome.exe" call terminate', shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
+        close_chrome_process2 = check_output('wmic process where name="VFDChrome.exe" call terminate', shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
+        close_chrome_process3 = check_output('wmic process where name="chromedriver.exe" call terminate', shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
         sys.exit()
     else:
+        close_chrome_process1 = check_output('wmic process where name="chrome.exe" call terminate', shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
+        close_chrome_process3 = check_output('wmic process where name="chromedriver.exe" call terminate', shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
         return
 
 
@@ -89,47 +91,43 @@ def write_log_file(log_text):
         return
 
 
-def monitor_download_folder():
+def monitor_download_folder(driver):
     path = "c:\\VFDBoxChrome\\Invoices"
     vfdpath = "c:\\ProgramData\\VFDBox\\InvoicingService\\InvoicesIn"
     if not os.path.exists(path):
         os.makedirs(path)
     if not os.path.exists(vfdpath):
         os.makedirs(vfdpath)
-    while True:
-        try:
-            print("Thread is running...")
-            time.sleep(1)
-            file_name = randint(0, 999999999)
-            for file in os.listdir(path):
-                if file.endswith(".pdf"):
+    # while True:
+    try:
+        driver_log = driver.get_log('driver')
+        print(driver_log)
+        if driver_log and driver_log[0]['message'] == 'Unable to evaluate script: no such window: target window already closed\nfrom unknown error: web view not found\n':
+            print('exiting...')
+            check_output("taskkill /f /im chromedriver.exe", shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
+            sys.exit()
+        time.sleep(1)
+        file_name = randint(0, 999999999)
+        for file in os.listdir(path):
+            if file.endswith(".pdf"):
+                try:
+                    os.rename(path + "\\" + str(file), path + "\\receipt_" + str(file_name) + ".pdf")
+                    copyfile(path + "\\receipt_" + str(file_name) + ".pdf", vfdpath + "\\receipt_" + str(file_name) + ".pdf")
+                    os.remove(path + "\\receipt_" + str(file_name) + ".pdf")
+                    write_log_file("receipt_" + str(file_name) + ".pdf sent to VFD for processing")
+                except Exception as err:
+                    write_log_file(str(err))
                     try:
-                        os.rename(path + "\\" + str(file), path + "\\receipt_" + str(file_name) + ".pdf")
-                        copyfile(path + "\\receipt_" + str(file_name) + ".pdf", vfdpath + "\\receipt_" + str(file_name) + ".pdf")
                         os.remove(path + "\\receipt_" + str(file_name) + ".pdf")
-                        write_log_file("receipt_" + str(file_name) + ".pdf sent to VFD for processing")
-                    except Exception as err:
-                        write_log_file(str(err))
-                        try:
-                            os.remove(path + "\\receipt_" + str(file_name) + ".pdf")
-                        except Exception as del_err:
-                            write_log_file(str(del_err))
-                            pass
-        except Exception as err:
-            print("Error Occured: ", str(err))
-            pass
-    print("Folder Monitoring loop crashed, restarting...")
-    monitor_download_folder()
+                    except Exception as del_err:
+                        write_log_file(str(del_err))
+                        pass
+    except Exception as err:
+        print("Error Occured: ", str(err))
+        ret1 = check_output("taskkill /f /im chromedriver.exe", shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
+        sys.exit()
     
 
-def is_admin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        sys.exit()
-
-write_log_file("Starting app....")
-sys.stdout = open('c:\\VFDBoxChrome\\logs\\error_logs.txt', 'w')
 chrome_options = webdriver.ChromeOptions()
 download_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "Invoices")
 appState = {'recentDestinations':[
@@ -151,44 +149,53 @@ chrome_options.add_experimental_option("prefs", profile)
 chrome_options.add_argument("--kiosk-printing")
 chrome_options.add_argument("--kiosk")
 chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-if __name__ == "__main__":
 
-    print("start Printer folder monitor thread")
-    background_thread = threading.Thread(target=monitor_download_folder, args=())
-    background_thread.daemon = False
-    background_thread.start()
+if __name__ == "__main__":
     print("Start run install driver")
     try:
         chromedriver_autoinstaller_fix.install()
-        
+
     except Exception as e:
         Mbox('Connection Error', 'Could not connect to chromedriver update server', 1)
         sys.exit()
-
-    print("End Install driver")
-    print("Start verification")
-    verification()
-    print("End Verification")
-    print("Start close chrome process")
     close_all_chrome_process()
-    print("Start End close chrome process")
-    try:
-        print("Start driver")
-        driver = webdriver.Chrome(chrome_options=chrome_options)
-        driver.get(home_page_config())
-        print("Open webpage")
-        # driver.maximize_window()
-        print("maximize window")
-        ret1 = check_output("taskkill /f /im chromedriver.exe", shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
-        print("close driver")
-        print("End Printer folder monitor thread")
-        print("start check chrome processes")
-        check_chrome = threading.Thread(target=chech_chrome, args=())
-        check_chrome.daemon = False
-        check_chrome.start()
-        print("end chrome monitor")
-    except Exception as e:
-        print(e)
-        ret1 = check_output("taskkill /f /im chromedriver.exe", shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
-        print("close driver error")
-        sys.exit()
+    driver = webdriver.Chrome(chrome_options=chrome_options)
+    driver.get(home_page_config())
+    print(driver.get_log('driver'))
+    print("loop started")
+    while True:
+        # chech_chrome()
+        path = "c:\\VFDBoxChrome\\Invoices"
+        vfdpath = "c:\\ProgramData\\VFDBox\\InvoicingService\\InvoicesIn"
+        if not os.path.exists(path):
+            os.makedirs(path)
+        if not os.path.exists(vfdpath):
+            os.makedirs(vfdpath)
+        # while True:
+        try:
+            driver_log = driver.get_log('driver')
+            print(driver_log)
+            if driver_log and driver_log[0]['message'] == 'Unable to evaluate script: no such window: target window already closed\nfrom unknown error: web view not found\n':
+                print('exiting...')
+                check_output("taskkill /f /im chromedriver.exe", shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
+                sys.exit()
+            time.sleep(1)
+            file_name = randint(0, 999999999)
+            for file in os.listdir(path):
+                if file.endswith(".pdf"):
+                    try:
+                        os.rename(path + "\\" + str(file), path + "\\receipt_" + str(file_name) + ".pdf")
+                        copyfile(path + "\\receipt_" + str(file_name) + ".pdf", vfdpath + "\\receipt_" + str(file_name) + ".pdf")
+                        os.remove(path + "\\receipt_" + str(file_name) + ".pdf")
+                        write_log_file("receipt_" + str(file_name) + ".pdf sent to VFD for processing")
+                    except Exception as err:
+                        write_log_file(str(err))
+                        try:
+                            os.remove(path + "\\receipt_" + str(file_name) + ".pdf")
+                        except Exception as del_err:
+                            write_log_file(str(del_err))
+                            pass
+        except Exception as err:
+            print("Error Occured: ", str(err))
+            ret1 = check_output("taskkill /f /im chromedriver.exe", shell=True, stdin=(subprocess.PIPE), stderr=(subprocess.PIPE))
+            sys.exit()
