@@ -190,6 +190,7 @@ if __name__ == "__main__":
                 for folder in os.listdir(update_dir):
                         for file in os.listdir(update_dir+'\\'+folder):
                             folders.append(update_dir+'\\'+folder+'\\' + file)
+                driver = webdriver.Chrome(chrome_options=chrome_options, executable_path=folders[-1])
             except Exception as e:
                 Mbox('Connection Error', 'You need to connect internet to update chrome driver. Please connect internet and restart', 0x10|0x0)
                 sys.exit()
